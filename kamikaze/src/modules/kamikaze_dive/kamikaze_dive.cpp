@@ -17,7 +17,6 @@ void KamikazeDive::publish_offboard_control_mode()
 {
         _offboard_control.timestamp = hrt_absolute_time();
         _offboard_control.attitude = true;
-        _offboard_control.thrust_and_torque = true;
         _offboard_control_pub.publish(_offboard_control);
 }
 
@@ -49,28 +48,23 @@ void KamikazeDive::populate_att_sp()
 	int roll_ang = 0;
 	float yaw_ang = _position.heading;
 	float pitch_ang = math::radians(_param_dive_ang.get());
-	float thrust = _param_dive_thr.get();
 
 	matrix::Eulerf euler_angles(roll_ang, pitch_ang, yaw_ang);
 	matrix::Quatf quaternion(euler_angles);
 
 	// Populate Setpoint
-	_attitude_setpoint = {};
-
 	_attitude_setpoint.timestamp = hrt_absolute_time();
 
 	_attitude_setpoint.q_d[0] = quaternion(0);
 	_attitude_setpoint.q_d[1] = quaternion(1);
 	_attitude_setpoint.q_d[2] = quaternion(2);
 	_attitude_setpoint.q_d[3] = quaternion(3);
-
-	_attitude_setpoint.thrust_body[0] = thrust;
 }
 
 
 bool KamikazeDive::init()
 {
-	ScheduleOnInterval(50_ms);
+	ScheduleOnInterval(200_ms);
 
 	return true;
 }
@@ -94,18 +88,21 @@ void KamikazeDive::Run()
 
 	if (_param_flight_state.get() == 1) {
 
-		if(_vehicle_status.nav_state != vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
+		publish_offboard_control_mode();
+
+		_vehicle_status_sub.update(&_vehicle_status);
+
+		if(_vehicle_status.nav_state != 14) {
 			PX4_INFO("Switching to OFFBOARD");
-			publish_offboard_control_mode();
 			set_mode_offboard();
 			return;
 		}
-
-		populate_att_sp();
-		_attitude_setpoint_pub.publish(_attitude_setpoint);
+		if (!_populated_att_sp) {
+			populate_att_sp();
+			_attitude_setpoint_pub.publish(_attitude_setpoint);
+			_populated_att_sp = true;
+		}
 	}
-
-
 
 	perf_end(_loop_perf);
 }

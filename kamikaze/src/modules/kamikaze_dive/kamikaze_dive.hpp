@@ -71,6 +71,8 @@ private:
 	offboard_control_mode_s		_offboard_control{};
 	vehicle_local_position_s		_position{};
 
+	bool _populated_att_sp{false};
+
 	// Parameters
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::FLIGHT_STATE>) _param_flight_state,
